@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TempMail - Disposable Email Service</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📧 TempMail</h1>
+            <p>Protect your privacy with temporary email addresses</p>
+        </header>
+
+        <!-- Email Generator Card -->
+        <div class="card generator-card">
+            <h2>Your Temporary Email</h2>
+            <div class="email-display">
+                <div class="email-address">
+                    <span id="emailUsername">loading</span>
+                    <span id="emailDomain">@tempmail.com</span>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="copyEmail()">
+                        📋 Copy
+                    </button>
+                    <button class="btn btn-secondary" onclick="generateNewEmail()">
+                        🔄 New Email
+                    </button>
+                </div>
+            </div>
+            <div class="domain-selector">
+                <label>Select Domain:</label>
+                <select id="domainSelect" onchange="changeDomain()">
+                    <option value="tempmail.com">tempmail.com</option>
+                </select>
+            </div>
+            <p class="info-text">⏰ This email expires in 2 hours</p>
+        </div>
+
+        <!-- Inbox Card -->
+        <div class="card inbox-card">
+            <div class="inbox-header">
+                <h2>📥 Inbox</h2>
+                <div class="inbox-actions">
+                    <button class="btn-icon" onclick="refreshInbox()" title="Refresh">
+                        🔄
+                    </button>
+                    <button class="btn-icon" onclick="clearInbox()" title="Clear All">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            <div id="inboxContent" class="inbox-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading messages...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Viewer Modal -->
+        <div id="emailModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalSubject">Email Subject</h2>
+                    <span class="close" onclick="closeModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="email-meta">
+                        <p><strong>From:</strong> <span id="modalFrom"></span></p>
+                        <p><strong>Received:</strong> <span id="modalDate"></span></p>
+                    </div>
+                    <div id="modalBody" class="email-body"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Email Sender (for development) -->
+        <div class="card test-card">
+            <h3>📝 Send Test Email</h3>
+            <div class="test-form">
+                <input type="text" id="testFrom" placeholder="sender@example.com">
+                <input type="text" id="testSubject" placeholder="Subject">
+                <textarea id="testBody" placeholder="Message body..."></textarea>
+                <button class="btn btn-primary" onclick="sendTestEmail()">
+                    Send Test Email
+                </button>
+            </div>
+            <p class="info-text">💡 This is for testing only. In production, real emails will come from your SMTP server.</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
