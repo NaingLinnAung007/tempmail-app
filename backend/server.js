@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,154 +10,104 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Database setup
+// Database setup (better-sqlite3 - Render compatible)
 const dbPath = path.join(__dirname, 'tempmail.db');
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
 // Create tables
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS emails (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email_id TEXT UNIQUE,
-      recipient TEXT,
-      sender TEXT,
-      subject TEXT,
-      body TEXT,
-      html TEXT,
-      is_read BOOLEAN DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS emails (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email_id TEXT UNIQUE,
+    recipient TEXT,
+    sender TEXT,
+    subject TEXT,
+    body TEXT,
+    html TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS domains (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      domain_name TEXT UNIQUE,
-      is_active BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-});
+db.exec(`
+  CREATE TABLE IF NOT EXISTS domains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain_name TEXT UNIQUE,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Insert default domains if none exist
+const domainCount = db.prepare('SELECT COUNT(*) as count FROM domains').get();
+if (domainCount.count === 0) {
+  const insertDomain = db.prepare('INSERT INTO domains (domain_name) VALUES (?)');
+  insertDomain.run('tempmail.com');
+  insertDomain.run('tempinbox.com');
+  insertDomain.run('throwaway.com');
+  console.log('✅ Default domains added');
+}
 
 // Database helper functions
 const dbHelpers = {
   saveEmail: (emailData) => {
-    return new Promise((resolve, reject) => {
-      const stmt = db.prepare(`
-        INSERT OR REPLACE INTO emails 
-        (email_id, recipient, sender, subject, body, html, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-      
-      stmt.run(
-        emailData.email_id,
-        emailData.recipient,
-        emailData.sender,
-        emailData.subject,
-        emailData.body,
-        emailData.html,
-        emailData.created_at || new Date().toISOString(),
-        function(err) {
-          if (err) reject(err);
-          else resolve(this.lastID);
-        }
-      );
-      stmt.finalize();
-    });
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO emails 
+      (email_id, recipient, sender, subject, body, html, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      emailData.email_id,
+      emailData.recipient,
+      emailData.sender,
+      emailData.subject,
+      emailData.body,
+      emailData.html,
+      emailData.created_at || new Date().toISOString()
+    );
   },
 
   getEmailsByRecipient: (recipient, limit = 50) => {
-    return new Promise((resolve, reject) => {
-      db.all(
-        `SELECT * FROM emails WHERE recipient = ? 
-         ORDER BY created_at DESC LIMIT ?`,
-        [recipient, limit],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
+    const stmt = db.prepare(`
+      SELECT * FROM emails WHERE recipient = ? 
+      ORDER BY created_at DESC LIMIT ?
+    `);
+    return stmt.all(recipient, limit);
   },
 
   getEmailById: (id) => {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM emails WHERE id = ?`,
-        [id],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const stmt = db.prepare(`SELECT * FROM emails WHERE id = ?`);
+    return stmt.get(id);
   },
 
   markAsRead: (id) => {
-    return new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE emails SET is_read = 1 WHERE id = ?`,
-        [id],
-        (err) => {
-          if (err) reject(err);
-          else resolve(true);
-        }
-      );
-    });
+    const stmt = db.prepare(`UPDATE emails SET is_read = 1 WHERE id = ?`);
+    return stmt.run(id);
   },
 
   deleteOldEmails: (hours = 2) => {
-    return new Promise((resolve, reject) => {
-      db.run(
-        `DELETE FROM emails WHERE created_at < datetime('now', '-' || ? || ' hours')`,
-        [hours],
-        (err) => {
-          if (err) reject(err);
-          else resolve(true);
-        }
-      );
-    });
-  },
-
-  addDomain: (domainName) => {
-    return new Promise((resolve, reject) => {
-      const stmt = db.prepare(`
-        INSERT OR IGNORE INTO domains (domain_name) VALUES (?)
-      `);
-      stmt.run(domainName, function(err) {
-        if (err) reject(err);
-        else resolve(this.lastID);
-      });
-      stmt.finalize();
-    });
-  },
-
-  getActiveDomains: () => {
-    return new Promise((resolve, reject) => {
-      db.all(
-        `SELECT domain_name FROM domains WHERE is_active = 1`,
-        [],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows.map(r => r.domain_name));
-        }
-      );
-    });
+    const stmt = db.prepare(`
+      DELETE FROM emails WHERE created_at < datetime('now', '-' || ? || ' hours')
+    `);
+    return stmt.run(hours);
   },
 
   clearInbox: (recipient) => {
-    return new Promise((resolve, reject) => {
-      db.run(
-        `DELETE FROM emails WHERE recipient = ?`,
-        [recipient],
-        (err) => {
-          if (err) reject(err);
-          else resolve(true);
-        }
-      );
-    });
+    const stmt = db.prepare(`DELETE FROM emails WHERE recipient = ?`);
+    return stmt.run(recipient);
+  },
+
+  getActiveDomains: () => {
+    const stmt = db.prepare(`SELECT domain_name FROM domains WHERE is_active = 1`);
+    const rows = stmt.all();
+    return rows.map(row => row.domain_name);
+  },
+
+  addDomain: (domainName) => {
+    const stmt = db.prepare(`INSERT OR IGNORE INTO domains (domain_name) VALUES (?)`);
+    return stmt.run(domainName);
   }
 };
 
@@ -180,11 +131,11 @@ app.get('/api/generate', (req, res) => {
 });
 
 // Get inbox for specific email
-app.get('/api/inbox/:email', async (req, res) => {
+app.get('/api/inbox/:email', (req, res) => {
   const email = decodeURIComponent(req.params.email);
   
   try {
-    const messages = await dbHelpers.getEmailsByRecipient(email);
+    const messages = dbHelpers.getEmailsByRecipient(email);
     res.json(messages);
   } catch (error) {
     console.error('Error fetching inbox:', error);
@@ -193,11 +144,11 @@ app.get('/api/inbox/:email', async (req, res) => {
 });
 
 // Get single email by ID
-app.get('/api/message/:id', async (req, res) => {
+app.get('/api/message/:id', (req, res) => {
   try {
-    const message = await dbHelpers.getEmailById(req.params.id);
+    const message = dbHelpers.getEmailById(req.params.id);
     if (message) {
-      await dbHelpers.markAsRead(req.params.id);
+      dbHelpers.markAsRead(req.params.id);
       res.json(message);
     } else {
       res.status(404).json({ error: 'Message not found' });
@@ -209,11 +160,11 @@ app.get('/api/message/:id', async (req, res) => {
 });
 
 // Delete all emails for a recipient
-app.delete('/api/inbox/:email', async (req, res) => {
+app.delete('/api/inbox/:email', (req, res) => {
   const email = decodeURIComponent(req.params.email);
   
   try {
-    await dbHelpers.clearInbox(email);
+    dbHelpers.clearInbox(email);
     res.json({ success: true, message: 'Inbox cleared' });
   } catch (error) {
     console.error('Error clearing inbox:', error);
@@ -222,25 +173,18 @@ app.delete('/api/inbox/:email', async (req, res) => {
 });
 
 // Get available domains
-app.get('/api/domains', async (req, res) => {
+app.get('/api/domains', (req, res) => {
   try {
-    const domains = await dbHelpers.getActiveDomains();
-    if (domains.length === 0) {
-      await dbHelpers.addDomain('tempmail.com');
-      await dbHelpers.addDomain('tempinbox.com');
-      await dbHelpers.addDomain('throwaway.com');
-      res.json(['tempmail.com', 'tempinbox.com', 'throwaway.com']);
-    } else {
-      res.json(domains);
-    }
+    const domains = dbHelpers.getActiveDomains();
+    res.json(domains);
   } catch (error) {
     console.error('Error fetching domains:', error);
     res.json(['tempmail.com', 'tempinbox.com', 'throwaway.com']);
   }
 });
 
-// Webhook to receive emails
-app.post('/api/receive', async (req, res) => {
+// Webhook to receive emails (for testing)
+app.post('/api/receive', (req, res) => {
   const { to, from, subject, body, html } = req.body;
   
   if (!to || !from) {
@@ -248,7 +192,7 @@ app.post('/api/receive', async (req, res) => {
   }
   
   const emailData = {
-    email_id: Date.now().toString() + Math.random().toString(36),
+    email_id: Date.now().toString() + Math.random().toString(36).substring(2),
     recipient: to,
     sender: from,
     subject: subject || '(No Subject)',
@@ -258,7 +202,7 @@ app.post('/api/receive', async (req, res) => {
   };
   
   try {
-    await dbHelpers.saveEmail(emailData);
+    dbHelpers.saveEmail(emailData);
     console.log(`✅ Email saved: from ${from} to ${to}`);
     res.json({ success: true, message: 'Email received' });
   } catch (error) {
@@ -267,47 +211,56 @@ app.post('/api/receive', async (req, res) => {
   }
 });
 
-// Clean old emails every hour
-setInterval(async () => {
+// Health check endpoint (for Render)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Clean old emails every hour (emails older than 2 hours)
+setInterval(() => {
   try {
-    await dbHelpers.deleteOldEmails(2);
-    console.log('🧹 Cleaned old emails (older than 2 hours)');
+    const result = dbHelpers.deleteOldEmails(2);
+    console.log(`🧹 Cleaned old emails: ${result.changes} deleted`);
   } catch (error) {
     console.error('Error cleaning emails:', error);
   }
-}, 3600000);
+}, 3600000); // Every hour
 
-// ==================== FRONTEND ROUTE (FIXED) ====================
+// ==================== FRONTEND ROUTE ====================
 // Serve static files from frontend folder
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// For any other request that's not an API route, serve index.html
+// Catch-all route for frontend (must be last)
 app.get('*', (req, res) => {
-  // Don't interfere with API routes
+  // Skip API routes
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
-  // Serve the frontend
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // ==================== START SERVER ====================
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 ========================================`);
   console.log(`✅ TempMail Server is running!`);
   console.log(`========================================`);
   console.log(`📡 Server URL: http://localhost:${PORT}`);
-  console.log(`📨 Test Email Endpoint: http://localhost:${PORT}/api/receive`);
   console.log(`🌐 Open in browser: http://localhost:${PORT}`);
+  console.log(`❤️  Health check: http://localhost:${PORT}/health`);
   console.log(`========================================\n`);
 });
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down server...');
-  db.close((err) => {
-    if (err) console.error('Error closing database:', err);
-    console.log('📁 Database closed');
-    process.exit(0);
-  });
+  db.close();
+  console.log('📁 Database closed');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Shutting down server...');
+  db.close();
+  console.log('📁 Database closed');
+  process.exit(0);
 });
