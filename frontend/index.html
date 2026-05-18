@@ -4,95 +4,356 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TempMail - Disposable Email Service</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .email-display {
+            background: #f7f9fc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .email-address {
+            font-size: 1.2rem;
+            font-family: monospace;
+            word-break: break-all;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #38a169;
+        }
+        
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+        
+        .inbox-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .email-item {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .email-item:hover {
+            background: #f7fafc;
+        }
+        
+        .email-from {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .email-date {
+            font-size: 12px;
+            color: #a0aec0;
+            float: right;
+        }
+        
+        .email-subject {
+            font-weight: 500;
+            color: #4a5568;
+            margin: 5px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a0aec0;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            max-width: 600px;
+            width: 90%;
+            border-radius: 15px;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .test-form input, .test-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        
+        .test-form textarea {
+            min-height: 80px;
+        }
+        
+        @media (max-width: 600px) {
+            .email-address { font-size: 14px; }
+            .btn { width: 100%; margin: 5px 0; }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
+        <div class="header">
             <h1>📧 TempMail</h1>
-            <p>Protect your privacy with temporary email addresses</p>
-        </header>
-
-        <!-- Email Generator Card -->
-        <div class="card generator-card">
-            <h2>Your Temporary Email</h2>
+            <p>Free temporary email address to protect your privacy</p>
+        </div>
+        
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">Your temporary email address</h3>
             <div class="email-display">
                 <div class="email-address">
-                    <span id="emailUsername">loading</span>
-                    <span id="emailDomain">@tempmail.com</span>
+                    <span id="emailUsername">loading</span><span id="emailDomain">@tempmail.com</span>
                 </div>
-                <div class="button-group">
-                    <button class="btn btn-primary" onclick="copyEmail()">
-                        📋 Copy
-                    </button>
-                    <button class="btn btn-secondary" onclick="generateNewEmail()">
-                        🔄 New Email
-                    </button>
+                <div>
+                    <button class="btn btn-primary" onclick="copyEmail()">📋 Copy</button>
+                    <button class="btn btn-secondary" onclick="generateNewEmail()">🔄 New Email</button>
                 </div>
             </div>
-            <div class="domain-selector">
-                <label>Select Domain:</label>
-                <select id="domainSelect" onchange="changeDomain()">
-                    <option value="tempmail.com">tempmail.com</option>
-                </select>
-            </div>
-            <p class="info-text">⏰ This email expires in 2 hours</p>
         </div>
-
-        <!-- Inbox Card -->
-        <div class="card inbox-card">
+        
+        <div class="card">
             <div class="inbox-header">
-                <h2>📥 Inbox</h2>
-                <div class="inbox-actions">
-                    <button class="btn-icon" onclick="refreshInbox()" title="Refresh">
-                        🔄
-                    </button>
-                    <button class="btn-icon" onclick="clearInbox()" title="Clear All">
-                        🗑️
-                    </button>
+                <h3>📥 Inbox</h3>
+                <div>
+                    <button class="btn btn-primary" onclick="refreshInbox()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="clearInbox()">🗑️ Clear All</button>
                 </div>
             </div>
-            <div id="inboxContent" class="inbox-content">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Loading messages...</p>
-                </div>
+            <div id="inboxContent">
+                <div class="loading">Loading inbox...</div>
             </div>
         </div>
-
-        <!-- Email Viewer Modal -->
-        <div id="emailModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="modalSubject">Email Subject</h2>
-                    <span class="close" onclick="closeModal()">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div class="email-meta">
-                        <p><strong>From:</strong> <span id="modalFrom"></span></p>
-                        <p><strong>Received:</strong> <span id="modalDate"></span></p>
-                    </div>
-                    <div id="modalBody" class="email-body"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Test Email Sender (for development) -->
-        <div class="card test-card">
+        
+        <div class="card">
             <h3>📝 Send Test Email</h3>
             <div class="test-form">
                 <input type="text" id="testFrom" placeholder="sender@example.com">
                 <input type="text" id="testSubject" placeholder="Subject">
                 <textarea id="testBody" placeholder="Message body..."></textarea>
-                <button class="btn btn-primary" onclick="sendTestEmail()">
-                    Send Test Email
-                </button>
+                <button class="btn btn-primary" onclick="sendTestEmail()">Send Test Email</button>
             </div>
-            <p class="info-text">💡 This is for testing only. In production, real emails will come from your SMTP server.</p>
         </div>
     </div>
-
-    <script src="script.js"></script>
+    
+    <div id="emailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalSubject">Subject</h3>
+                <span onclick="closeModal()" style="cursor:pointer; font-size:24px;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p><strong>From:</strong> <span id="modalFrom"></span></p>
+                <p><strong>Date:</strong> <span id="modalDate"></span></p>
+                <hr>
+                <div id="modalBody"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentEmail = '';
+        let refreshInterval = null;
+        
+        async function generateNewEmail() {
+            const response = await fetch('/api/generate');
+            const data = await response.json();
+            const [username, domain] = data.email.split('@');
+            document.getElementById('emailUsername').textContent = username;
+            document.getElementById('emailDomain').textContent = '@' + domain;
+            currentEmail = data.email;
+            await refreshInbox();
+        }
+        
+        async function refreshInbox() {
+            if (!currentEmail) return;
+            const response = await fetch(`/api/inbox/${encodeURIComponent(currentEmail)}`);
+            const emails = await response.json();
+            const inboxDiv = document.getElementById('inboxContent');
+            
+            if (emails.length === 0) {
+                inboxDiv.innerHTML = '<div class="empty-state">📭 No emails yet</div>';
+                return;
+            }
+            
+            inboxDiv.innerHTML = emails.map(email => `
+                <div class="email-item" onclick="viewEmail(${email.id})">
+                    <div>
+                        <span class="email-from">${escapeHtml(email.sender)}</span>
+                        <span class="email-date">${new Date(email.created_at).toLocaleString()}</span>
+                    </div>
+                    <div class="email-subject">${escapeHtml(email.subject)}</div>
+                    <div>${escapeHtml(email.body?.substring(0, 100))}...</div>
+                </div>
+            `).join('');
+        }
+        
+        async function viewEmail(id) {
+            const response = await fetch(`/api/message/${id}`);
+            const email = await response.json();
+            document.getElementById('modalSubject').textContent = email.subject;
+            document.getElementById('modalFrom').textContent = email.sender;
+            document.getElementById('modalDate').textContent = new Date(email.created_at).toLocaleString();
+            document.getElementById('modalBody').innerHTML = email.html || email.body || '(No content)';
+            document.getElementById('emailModal').style.display = 'block';
+            await refreshInbox();
+        }
+        
+        async function sendTestEmail() {
+            const from = document.getElementById('testFrom').value;
+            const subject = document.getElementById('testSubject').value;
+            const body = document.getElementById('testBody').value;
+            
+            if (!from) {
+                alert('Please enter a sender email');
+                return;
+            }
+            
+            await fetch('/api/receive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: currentEmail,
+                    from: from,
+                    subject: subject || 'Test Email',
+                    body: body || 'This is a test email from TempMail',
+                    html: `<p>${escapeHtml(body || 'This is a test email from TempMail')}</p>`
+                })
+            });
+            
+            alert('Test email sent!');
+            document.getElementById('testFrom').value = '';
+            document.getElementById('testSubject').value = '';
+            document.getElementById('testBody').value = '';
+            await refreshInbox();
+        }
+        
+        async function clearInbox() {
+            if (!confirm('Are you sure you want to clear all emails?')) return;
+            await fetch(`/api/inbox/${encodeURIComponent(currentEmail)}`, { method: 'DELETE' });
+            await refreshInbox();
+        }
+        
+        function copyEmail() {
+            const fullEmail = document.getElementById('emailUsername').textContent + 
+                            document.getElementById('emailDomain').textContent;
+            navigator.clipboard.writeText(fullEmail);
+            alert('Email copied to clipboard!');
+        }
+        
+        function closeModal() {
+            document.getElementById('emailModal').style.display = 'none';
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        generateNewEmail();
+        setInterval(refreshInbox, 15000);
+        
+        window.onclick = function(event) {
+            const modal = document.getElementById('emailModal');
+            if (event.target === modal) closeModal();
+        }
+    </script>
 </body>
 </html>
